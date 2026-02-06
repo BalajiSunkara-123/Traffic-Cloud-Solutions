@@ -1,0 +1,48 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Login</title>
+    <link rel="stylesheet" href="{% static 'styles/Login.css' %}" />
+  </head>
+
+  <body>
+    <form>
+      <h1>Login</h1>
+      <label for="username">User Name:</label>
+      <input id="username" type="text" placeholder="User Name" required />
+      <br /><br />
+
+      <label for="email">Email:</label>
+      <input id="email" type="email" placeholder="Email" required />
+      <br /><br />
+
+      <label for="password">Password:</label>
+      <input id="password" type="password" placeholder="Password" required />
+      <br /><br />
+
+      <div
+        style="
+          display: grid;
+          grid-template-columns: auto 350px;
+          align-items: center;
+          gap: 10px;
+        "
+      >
+        <input id="question" type="checkbox" onclick="checkPolice()" />
+        <label for="question">Belongs to Traffic Dept?</label>
+      </div>
+
+      <div id="secretCode"></div>
+      <button type="submit">Login</button>
+      <br /><br />
+
+      <a href="#">Forgot Password</a> |
+      <a href="Register.html">Register / Sign Up</a>
+    </form>
+
+    <script src="./scripts/Login.js"></script>
+  </body>
+</html>
