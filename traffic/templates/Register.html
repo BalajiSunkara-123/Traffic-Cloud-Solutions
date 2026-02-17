@@ -1,29 +1,55 @@
+{% load static %}
 <!doctype html>
 <html lang="en">
   <head>
     <title>Registration</title>
-    <link rel="stylesheet" href="./styles/Register.css" />
+    <link rel="stylesheet" href="{% static 'styles/Register.css' %}" />
   </head>
 
   <body>
     <div class="box">
-      <form id="registerForm">
+      <form action="{% url 'register' %}" method="post" id="registerForm">
+        {% csrf_token %}
         <h2>Register Account</h2>
-
+        {%for mssg in messages %} {{mssg}} {%endfor%}
         <label for="fullname">Full Name:</label>
-        <input id="fullname" type="text" placeholder="Full Name" required />
+        <input
+          id="fullname"
+          name="fullname"
+          type="text"
+          placeholder="Full Name"
+          required
+        />
 
         <label for="username">User Name:</label>
-        <input id="username" type="text" placeholder="User Name" required />
+        <input
+          id="username"
+          name="username"
+          type="text"
+          placeholder="User Name"
+          required
+        />
 
         <label for="email">Email:</label>
-        <input id="email" type="email" placeholder="Email" required />
+        <input
+          id="email"
+          name="email"
+          type="email"
+          placeholder="Email"
+          required
+        />
 
         <label for="password">Password:</label>
-        <input id="password" type="password" placeholder="Password" required />
+        <input
+          id="password"
+          name="password"
+          type="password"
+          placeholder="Password"
+          required
+        />
 
         <label for="phonenno">Phone No:</label>
-        <input id="phonenno" placeholder="Phone No" />
+        <input id="phonenno" name="phonenumber" placeholder="Phone No" />
 
         <label>
           <input type="checkbox" required /> I agree to the Terms & Conditions
@@ -36,7 +62,7 @@
 
         <button type="submit">Submit</button>
 
-        <a href="Login.html">"Already have an account? Login"</a>
+        <a href="{% url 'login' %}">"Already have an account? Login"</a>
       </form>
     </div>
 
