@@ -13,10 +13,13 @@ document.getElementById('google-login').addEventListener('click', () => {
 function checkPolice(){
     // console.log("hi")
     let secretDiv=document.getElementById("secretCode");
+    
+    if (secretDiv.childElementCount === 0){
     let label=document.createElement("label");
     label.textContent="Enter Your Code";
     let ip=document.createElement("input");
     ip.type="password";
     secretDiv.appendChild(label);
     secretDiv.appendChild(ip);
+    }
 }
