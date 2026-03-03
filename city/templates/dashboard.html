@@ -14,6 +14,9 @@
   </head>
   <body>
     <div id="map" style="height: 80vh; width: 100%"></div>
-    <script src="{% static 'scripts/city.js'%}"></script>
+    <script>
+      const geojsonUrl = "{% static 'city/kakinada.geojson' %}";
+    </script>
+    <script src="{% static 'city/city.js'%}"></script>
   </body>
 </html>
