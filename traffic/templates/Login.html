@@ -9,18 +9,20 @@
   </head>
 
   <body>
-    <form>
+    <form method="post" action={% url 'login' %}>
+      {% csrf_token %}
       <h1>Login</h1>
+      {%for mssg in messages %} {{mssg}} {%endfor%}
       <label for="username">User Name:</label>
-      <input id="username" type="text" placeholder="User Name" required />
+      <input id="username" type="text" name="username" placeholder="User Name" required />
       <br /><br />
 
       <label for="email">Email:</label>
-      <input id="email" type="email" placeholder="Email" required />
+      <input id="email" name="email" type="email" placeholder="Email" required />
       <br /><br />
 
       <label for="password">Password:</label>
-      <input id="password" type="password" placeholder="Password" required />
+      <input id="password" name="password" type="password" placeholder="Password" required />
       <br /><br />
 
       <div
@@ -31,7 +33,7 @@
           gap: 10px;
         "
       >
-        <input id="question" type="checkbox" onclick="checkPolice()" />
+        <input id="question" name="isTraffic" type="checkbox" onclick="checkPolice()" />
         <label for="question">Belongs to Traffic Dept?</label>
       </div>
 
