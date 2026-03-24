@@ -17,7 +17,7 @@ def distance(p1, p2):
 while True:
 
     # Load file
-    with open("static\city\kakinada.geojson") as f:
+    with open("static\city\kakinada_roads.json") as f:
         data = json.load(f)
 
     # Create map
