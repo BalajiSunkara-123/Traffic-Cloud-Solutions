@@ -1,22 +1,1139 @@
-{%load static %}
+{% load static %}
 <!doctype html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Dashboard</title>
+    <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+    <title>Kakinada Traffic Dashboard</title>
     <link
       rel="stylesheet"
       href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
     />
-
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Syne:wght@400;600;700;800&display=swap"
+      rel="stylesheet"
+    />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      html,
+      body {
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        font-family: 'Syne', sans-serif;
+        background: #0a0a0a;
+      }
+
+      #shell {
+        display: flex;
+        width: 100%;
+        height: 100%;
+        position: relative;
+      }
+      #map {
+        flex: 1 1 auto;
+        height: 100%;
+        z-index: 1;
+      }
+
+      /* HUD */
+      #hud {
+        position: absolute;
+        top: 14px;
+        left: 14px;
+        z-index: 900;
+        background: rgba(8, 8, 8, 0.88);
+        backdrop-filter: blur(14px);
+        border: 1px solid rgba(255, 255, 255, 0.09);
+        border-radius: 12px;
+        padding: 9px 15px;
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        pointer-events: none;
+      }
+      #hud .dot {
+        width: 9px;
+        height: 9px;
+        border-radius: 50%;
+        background: #27ae60;
+        box-shadow: 0 0 8px #27ae60;
+        animation: pulse 2s ease-in-out infinite;
+      }
+      @keyframes pulse {
+        0%,
+        100% {
+          opacity: 1;
+          transform: scale(1);
+        }
+        50% {
+          opacity: 0.45;
+          transform: scale(1.45);
+        }
+      }
+      #hud span {
+        color: #fff;
+        font-size: 13px;
+        font-weight: 600;
+        letter-spacing: 0.04em;
+      }
+
+      /* Legend */
+      #legend {
+        position: absolute;
+        bottom: 22px;
+        left: 14px;
+        z-index: 900;
+        background: rgba(8, 8, 8, 0.88);
+        backdrop-filter: blur(14px);
+        border: 1px solid rgba(255, 255, 255, 0.09);
+        border-radius: 12px;
+        padding: 12px 15px;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        transition:
+          opacity 0.4s,
+          transform 0.4s;
+      }
+      #legend.hidden {
+        opacity: 0;
+        transform: translateY(8px);
+        pointer-events: none;
+      }
+      .leg-title {
+        color: rgba(255, 255, 255, 0.38);
+        font-size: 10px;
+        letter-spacing: 0.13em;
+        text-transform: uppercase;
+        font-weight: 700;
+        margin-bottom: 2px;
+      }
+      .leg-row {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+      }
+      .leg-bar {
+        width: 26px;
+        height: 5px;
+        border-radius: 3px;
+        flex-shrink: 0;
+      }
+      .leg-row span {
+        color: #ccc;
+        font-size: 12px;
+        font-weight: 500;
+      }
+
+      /* Drag handle */
+      #drag-handle {
+        width: 6px;
+        height: 100%;
+        background: rgba(255, 255, 255, 0.04);
+        border-left: 1px solid rgba(255, 255, 255, 0.07);
+        cursor: col-resize;
+        flex-shrink: 0;
+        z-index: 800;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: background 0.2s;
+        position: relative;
+      }
+      #drag-handle:hover {
+        background: rgba(255, 255, 255, 0.1);
+      }
+      #drag-handle::after {
+        content: '';
+        width: 2px;
+        height: 42px;
+        background: rgba(255, 255, 255, 0.14);
+        border-radius: 2px;
+      }
+
+      /* Sidebar */
+      #sidebar {
+        width: 360px;
+        min-width: 240px;
+        max-width: 540px;
+        height: 100%;
+        background: #0f1012;
+        border-left: 1px solid rgba(255, 255, 255, 0.07);
+        display: flex;
+        flex-direction: column;
+        flex-shrink: 0;
+        overflow: hidden;
+        z-index: 800;
+        transition: width 0.05s;
+      }
+      #sidebar.collapsed {
+        width: 0 !important;
+        min-width: 0;
+        border-left: none;
+      }
+
+      /* Toggle tab */
+      #toggle-tab {
+        position: absolute;
+        top: 50%;
+        left: -28px;
+        transform: translateY(-50%);
+        width: 28px;
+        height: 56px;
+        background: #0f1012;
+        border: 1px solid rgba(255, 255, 255, 0.07);
+        border-right: none;
+        border-radius: 8px 0 0 8px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: rgba(255, 255, 255, 0.38);
+        font-size: 14px;
+        transition:
+          color 0.2s,
+          background 0.2s;
+        z-index: 810;
+      }
+      #toggle-tab:hover {
+        color: #fff;
+        background: #1a1c1f;
+      }
+
+      /* Sidebar header */
+      .sb-header {
+        padding: 20px 20px 14px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        flex-shrink: 0;
+      }
+      .sb-header h1 {
+        font-size: 17px;
+        font-weight: 800;
+        color: #fff;
+        white-space: nowrap;
+      }
+      .sb-header p {
+        font-size: 11px;
+        color: rgba(255, 255, 255, 0.32);
+        margin-top: 3px;
+        white-space: nowrap;
+      }
+
+      /* Sidebar body */
+      .sb-body {
+        flex: 1;
+        overflow-y: auto;
+        padding: 18px 20px;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      }
+      .sb-body::-webkit-scrollbar {
+        width: 3px;
+      }
+      .sb-body::-webkit-scrollbar-thumb {
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 2px;
+      }
+
+      .sb-label {
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.13em;
+        text-transform: uppercase;
+        color: rgba(255, 255, 255, 0.28);
+        margin-bottom: 8px;
+      }
+
+      /* Fields */
+      .field {
+        position: relative;
+        margin-bottom: 8px;
+      }
+      .field input {
+        width: 100%;
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.09);
+        border-radius: 10px;
+        padding: 12px 13px 12px 36px;
+        color: #fff;
+        font-size: 13px;
+        font-family: 'JetBrains Mono', monospace;
+        outline: none;
+        transition:
+          border-color 0.2s,
+          background 0.2s;
+      }
+      .field input::placeholder {
+        color: rgba(255, 255, 255, 0.22);
+      }
+      .field input:focus {
+        border-color: rgba(99, 200, 140, 0.5);
+        background: rgba(255, 255, 255, 0.08);
+      }
+      .field .icon {
+        position: absolute;
+        left: 11px;
+        top: 50%;
+        transform: translateY(-50%);
+        font-size: 13px;
+        pointer-events: none;
+      }
+
+      .swap-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.06);
+        border: 1px solid rgba(255, 255, 255, 0.09);
+        cursor: pointer;
+        color: rgba(255, 255, 255, 0.45);
+        font-size: 15px;
+        margin: -3px auto;
+        transition:
+          background 0.2s,
+          color 0.2s;
+        position: relative;
+        z-index: 2;
+      }
+      .swap-btn:hover {
+        background: rgba(99, 200, 140, 0.15);
+        color: #63c88c;
+      }
+
+      /* Route button */
+      .route-btn {
+        width: 100%;
+        padding: 13px;
+        background: linear-gradient(135deg, #27ae60, #1a8a48);
+        border: none;
+        border-radius: 10px;
+        color: #fff;
+        font-size: 14px;
+        font-weight: 700;
+        font-family: 'Syne', sans-serif;
+        letter-spacing: 0.02em;
+        cursor: pointer;
+        transition:
+          opacity 0.2s,
+          transform 0.1s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        margin-top: 12px;
+      }
+      .route-btn:hover {
+        opacity: 0.88;
+      }
+      .route-btn:active {
+        transform: scale(0.98);
+      }
+      .route-btn.loading {
+        pointer-events: none;
+        opacity: 0.65;
+      }
+      .spinner {
+        width: 16px;
+        height: 16px;
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        border-top-color: #fff;
+        border-radius: 50%;
+        animation: spin 0.7s linear infinite;
+        display: none;
+      }
+      .route-btn.loading .spinner {
+        display: block;
+      }
+      .route-btn.loading .btn-lbl {
+        display: none;
+      }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      .divider {
+        height: 1px;
+        background: rgba(255, 255, 255, 0.06);
+      }
+
+      /* Info cards */
+      .info-card {
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid rgba(255, 255, 255, 0.07);
+        border-radius: 10px;
+        padding: 12px 14px;
+        display: flex;
+        align-items: center;
+        gap: 11px;
+      }
+      .info-card .ic-icon {
+        font-size: 20px;
+        flex-shrink: 0;
+      }
+      .info-card .ic-text strong {
+        display: block;
+        color: #fff;
+        font-size: 13px;
+        font-weight: 700;
+      }
+      .info-card .ic-text span {
+        color: rgba(255, 255, 255, 0.32);
+        font-size: 11px;
+      }
+
+      /* Chips */
+      .chip-row {
+        display: flex;
+        gap: 7px;
+        flex-wrap: wrap;
+      }
+      .chip {
+        padding: 4px 10px;
+        border-radius: 20px;
+        font-size: 11px;
+        font-weight: 600;
+      }
+      .chip.green {
+        background: rgba(39, 174, 96, 0.18);
+        color: #4cd47e;
+      }
+      .chip.yellow {
+        background: rgba(243, 156, 18, 0.18);
+        color: #f5b942;
+      }
+      .chip.red {
+        background: rgba(231, 76, 60, 0.18);
+        color: #f47c6a;
+      }
+
+      /* ── Route Results ── */
+      #route-results {
+        display: none;
+        flex-direction: column;
+      }
+
+      .back-btn {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        background: none;
+        border: none;
+        color: rgba(255, 255, 255, 0.42);
+        font-size: 12px;
+        font-family: 'Syne', sans-serif;
+        cursor: pointer;
+        padding: 0;
+        margin-bottom: 16px;
+        font-weight: 600;
+        transition: color 0.2s;
+      }
+      .back-btn:hover {
+        color: #fff;
+      }
+      .back-btn svg {
+        width: 14px;
+        height: 14px;
+        stroke: currentColor;
+        fill: none;
+        stroke-width: 2.5;
+      }
+
+      .route-from-to {
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid rgba(255, 255, 255, 0.07);
+        border-radius: 10px;
+        padding: 13px 14px;
+        margin-bottom: 14px;
+        font-size: 12px;
+        line-height: 1.9;
+        color: rgba(255, 255, 255, 0.45);
+      }
+      .route-from-to strong {
+        color: #fff;
+        font-size: 13px;
+        font-weight: 700;
+      }
+      .route-from-to .arrow {
+        color: rgba(255, 255, 255, 0.2);
+        margin: 0 2px;
+      }
+
+      /* Route cards */
+      .rc {
+        border-radius: 12px;
+        padding: 14px;
+        margin-bottom: 10px;
+        cursor: pointer;
+        border: 2px solid transparent;
+        transition:
+          border-color 0.2s,
+          transform 0.15s,
+          box-shadow 0.2s,
+          opacity 0.2s;
+      }
+      .rc:hover {
+        transform: translateY(-2px);
+      }
+      .rc.active {
+        transform: translateY(-2px);
+      }
+      .rc.dim {
+        opacity: 0.45;
+      }
+
+      .rc.shortest {
+        background: rgba(52, 152, 219, 0.1);
+        border-color: rgba(52, 152, 219, 0.22);
+      }
+      .rc.shortest.active {
+        border-color: #3498db;
+        box-shadow: 0 0 18px rgba(52, 152, 219, 0.22);
+      }
+      .rc.fastest {
+        background: rgba(39, 174, 96, 0.1);
+        border-color: rgba(39, 174, 96, 0.22);
+      }
+      .rc.fastest.active {
+        border-color: #27ae60;
+        box-shadow: 0 0 18px rgba(39, 174, 96, 0.22);
+      }
+      .rc.traffic {
+        background: rgba(155, 89, 182, 0.1);
+        border-color: rgba(155, 89, 182, 0.22);
+      }
+      .rc.traffic.active {
+        border-color: #9b59b6;
+        box-shadow: 0 0 18px rgba(155, 89, 182, 0.22);
+      }
+
+      .rc-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 3px 9px;
+        border-radius: 20px;
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.09em;
+        text-transform: uppercase;
+        margin-bottom: 8px;
+      }
+      .shortest .rc-badge {
+        background: rgba(52, 152, 219, 0.2);
+        color: #5dade2;
+      }
+      .fastest .rc-badge {
+        background: rgba(39, 174, 96, 0.2);
+        color: #58d68d;
+      }
+      .traffic .rc-badge {
+        background: rgba(155, 89, 182, 0.2);
+        color: #bb8fce;
+      }
+
+      .rc-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        display: inline-block;
+        margin-right: 5px;
+        flex-shrink: 0;
+      }
+
+      .rc-title {
+        font-size: 14px;
+        font-weight: 700;
+        color: #fff;
+        margin-bottom: 10px;
+      }
+
+      .rc-stats {
+        display: flex;
+        gap: 8px;
+      }
+      .rc-stat {
+        flex: 1;
+        background: rgba(0, 0, 0, 0.3);
+        border-radius: 8px;
+        padding: 9px;
+        text-align: center;
+      }
+      .rc-stat .v {
+        font-size: 17px;
+        font-weight: 800;
+        color: #fff;
+        display: block;
+        font-family: 'JetBrains Mono', monospace;
+        letter-spacing: -0.02em;
+      }
+      .rc-stat .k {
+        font-size: 9px;
+        color: rgba(255, 255, 255, 0.32);
+        letter-spacing: 0.07em;
+        text-transform: uppercase;
+        margin-top: 2px;
+      }
+
+      .rc-bar {
+        margin-top: 10px;
+        height: 4px;
+        border-radius: 3px;
+        background: rgba(255, 255, 255, 0.08);
+        overflow: hidden;
+      }
+      .rc-fill {
+        height: 100%;
+        border-radius: 3px;
+        width: 0;
+        transition: width 0.9s ease;
+      }
+
+      /* Error */
+      #route-error {
+        color: #f47c6a;
+        font-size: 12px;
+        margin-top: 8px;
+        text-align: center;
+        display: none;
+        line-height: 1.5;
+      }
+    </style>
   </head>
   <body>
-    <div id="map" style="height: 80vh; width: 100%"></div>
+    <div id="shell">
+      <div id="map"></div>
+
+      <div id="drag-handle">
+        <div id="toggle-tab">&#8249;</div>
+      </div>
+
+      <div id="sidebar">
+        <div class="sb-header">
+          <h1>🗺 Route Planner</h1>
+          <p>Kakinada Smart Traffic · Live</p>
+        </div>
+
+        <div class="sb-body">
+          <!-- Input section -->
+          <div id="input-section">
+            <div class="sb-label">Plan Your Route</div>
+
+            <div class="field">
+              <span class="icon">📍</span>
+              <input
+                id="start-input"
+                type="text"
+                placeholder="Starting location…"
+              />
+            </div>
+            <div class="swap-btn" id="swap-btn">⇅</div>
+            <div class="field" style="margin-top: 9px">
+              <span class="icon">🏁</span>
+              <input id="end-input" type="text" placeholder="Destination…" />
+            </div>
+
+            <button class="route-btn" id="find-route-btn">
+              <span class="spinner"></span>
+              <span class="btn-lbl">🔍 Find Best Route</span>
+            </button>
+            <div id="route-error"></div>
+
+            <div class="divider" style="margin-top: 4px"></div>
+
+            <div>
+              <div class="sb-label">Live Traffic</div>
+              <div class="chip-row">
+                <span class="chip green">🟢 Free</span>
+                <span class="chip yellow">🟡 Moderate</span>
+                <span class="chip red">🔴 Heavy</span>
+              </div>
+            </div>
+
+            <div class="divider"></div>
+
+            <div style="display: flex; flex-direction: column; gap: 9px">
+              <div class="info-card">
+                <div class="ic-icon">🚦</div>
+                <div class="ic-text">
+                  <strong id="signal-count">—</strong>
+                  <span>Traffic signals</span>
+                </div>
+              </div>
+              <div class="info-card">
+                <div class="ic-icon">🛣️</div>
+                <div class="ic-text">
+                  <strong id="road-count">—</strong>
+                  <span>Road segments</span>
+                </div>
+              </div>
+              <div class="info-card">
+                <div class="ic-icon">⏱️</div>
+                <div class="ic-text">
+                  <strong id="last-update">—</strong>
+                  <span>Last update</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <!-- /input-section -->
+
+          <!-- Results section -->
+          <div id="route-results">
+            <button class="back-btn" id="back-btn">
+              <svg viewBox="0 0 24 24">
+                <polyline points="15 18 9 12 15 6" />
+              </svg>
+              Back to planner
+            </button>
+
+            <div class="route-from-to" id="route-from-to"></div>
+
+            <div id="cards-container"></div>
+          </div>
+        </div>
+        <!-- /sb-body -->
+      </div>
+      <!-- /sidebar -->
+    </div>
+    <!-- /shell -->
+
+    <div id="hud">
+      <div class="dot"></div>
+      <span>Live Traffic · Kakinada</span>
+    </div>
+
+    <div id="legend">
+      <div class="leg-title">Traffic Level</div>
+      <div class="leg-row">
+        <div class="leg-bar" style="background: #27ae60"></div>
+        <span>Free Flow</span>
+      </div>
+      <div class="leg-row">
+        <div class="leg-bar" style="background: #f39c12"></div>
+        <span>Moderate</span>
+      </div>
+      <div class="leg-row">
+        <div class="leg-bar" style="background: #e74c3c"></div>
+        <span>Heavy / Red Signal</span>
+      </div>
+    </div>
+
     <script>
       const geojsonUrl = "{% static 'city/kakinada.geojson' %}";
     </script>
-    <script src="{% static 'city/city.js'%}"></script>
+    <script src="{% static 'city/city.js' %}"></script>
+
+    <script>
+      // ══════════════════════════════════════════
+      //  Dashboard JS
+      // ══════════════════════════════════════════
+
+      // ── Drag-resize sidebar ─────────────────────
+      const handle = document.getElementById('drag-handle');
+      const sidebar = document.getElementById('sidebar');
+      const tab = document.getElementById('toggle-tab');
+      let dragging = false,
+        sidebarCollapsed = false;
+
+      handle.addEventListener('mousedown', (e) => {
+        if (e.target === tab) return;
+        dragging = true;
+        document.body.style.cursor = 'col-resize';
+        document.body.style.userSelect = 'none';
+      });
+      document.addEventListener('mousemove', (e) => {
+        if (!dragging) return;
+        const shellR = document
+          .getElementById('shell')
+          .getBoundingClientRect().right;
+        let w = shellR - e.clientX;
+        if (w < 60) {
+          collapseSB();
+          dragging = false;
+          document.body.style.cursor = '';
+          return;
+        }
+        w = Math.max(240, Math.min(540, w));
+        sidebar.classList.remove('collapsed');
+        tab.innerHTML = '&#8249;';
+        sidebarCollapsed = false;
+        sidebar.style.width = w + 'px';
+        map.invalidateSize();
+      });
+      document.addEventListener('mouseup', () => {
+        if (dragging) {
+          dragging = false;
+          document.body.style.cursor = '';
+          document.body.style.userSelect = '';
+          map.invalidateSize();
+        }
+      });
+      tab.addEventListener('click', () =>
+        sidebarCollapsed ? expandSB() : collapseSB(),
+      );
+      function collapseSB() {
+        sidebar.classList.add('collapsed');
+        tab.innerHTML = '&#8250;';
+        sidebarCollapsed = true;
+        setTimeout(() => map.invalidateSize(), 60);
+      }
+      function expandSB() {
+        sidebar.classList.remove('collapsed');
+        tab.innerHTML = '&#8249;';
+        sidebarCollapsed = false;
+        if (!sidebar.style.width || sidebar.style.width === '0px')
+          sidebar.style.width = '360px';
+        setTimeout(() => map.invalidateSize(), 60);
+      }
+
+      // ── Swap ────────────────────────────────────
+      document.getElementById('swap-btn').addEventListener('click', () => {
+        const s = document.getElementById('start-input');
+        const e = document.getElementById('end-input');
+        [s.value, e.value] = [e.value, s.value];
+      });
+
+      // ── Stats ────────────────────────────────────
+      function refreshStats() {
+        if (typeof signals !== 'undefined')
+          document.getElementById('signal-count').textContent = signals.length;
+        if (typeof roadLayers !== 'undefined')
+          document.getElementById('road-count').textContent = roadLayers.length;
+        document.getElementById('last-update').textContent =
+          new Date().toLocaleTimeString([], {
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+          });
+      }
+      setInterval(refreshStats, 5000);
+      setTimeout(refreshStats, 2500);
+
+      // ── Geocode via Nominatim ────────────────────
+      async function geocode(query) {
+        const base =
+          'https://nominatim.openstreetmap.org/search?format=json&limit=1';
+        const q = encodeURIComponent(
+          query + ', Kakinada, Andhra Pradesh, India',
+        );
+        const res = await fetch(`${base}&q=${q}`, {
+          headers: { 'Accept-Language': 'en' },
+        });
+        const data = await res.json();
+        if (data.length)
+          return [parseFloat(data[0].lat), parseFloat(data[0].lon)];
+        // fallback: try without Kakinada suffix
+        const q2 = encodeURIComponent(query + ', Kakinada');
+        const res2 = await fetch(`${base}&q=${q2}`, {
+          headers: { 'Accept-Language': 'en' },
+        });
+        const d2 = await res2.json();
+        if (d2.length) return [parseFloat(d2[0].lat), parseFloat(d2[0].lon)];
+        throw new Error(`"${query}" not found. Try a more specific name.`);
+      }
+
+      // ══════════════════════════════════════════
+      //  Map route rendering
+      // ══════════════════════════════════════════
+
+      const ROUTE_META = {
+        shortest: {
+          color: '#3498db',
+          label: 'Shortest Path',
+          badge: 'Shortest',
+          emoji: '📏',
+        },
+        fastest: {
+          color: '#2ecc71',
+          label: 'Fastest Route',
+          badge: 'Fastest',
+          emoji: '⚡',
+        },
+        traffic: {
+          color: '#9b59b6',
+          label: 'Traffic-Optimised',
+          badge: 'Smartest',
+          emoji: '🧠',
+        },
+      };
+
+      let _routeLines = {}; // key -> L.polyline
+      let _startMarker = null;
+      let _endMarker = null;
+      let _routeData = {}; // key -> { distKm, estMinutes, trafficScore }
+      let _activeKey = null;
+
+      // Custom pin marker
+      function pinMarker(latlng, color, letter) {
+        const icon = L.divIcon({
+          className: '',
+          html: `<div style="position:relative;width:28px;height:36px">
+      <svg viewBox="0 0 28 36" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:100%">
+        <path d="M14 0C6.268 0 0 6.268 0 14c0 9.625 14 22 14 22S28 23.625 28 14C28 6.268 21.732 0 14 0z"
+              fill="${color}" stroke="rgba(0,0,0,.3)" stroke-width="1.5"/>
+        <circle cx="14" cy="14" r="6" fill="rgba(255,255,255,.95)"/>
+        <text x="14" y="18" text-anchor="middle" font-size="9"
+              font-family="Syne,sans-serif" font-weight="800" fill="${color}">${letter}</text>
+      </svg>
+    </div>`,
+          iconSize: [28, 36],
+          iconAnchor: [14, 36],
+          popupAnchor: [0, -38],
+        });
+        return L.marker(latlng, { icon });
+      }
+
+      function clearRouteOverlay() {
+        Object.values(_routeLines).forEach((l) => map.removeLayer(l));
+        _routeLines = {};
+        if (_startMarker) {
+          map.removeLayer(_startMarker);
+          _startMarker = null;
+        }
+        if (_endMarker) {
+          map.removeLayer(_endMarker);
+          _endMarker = null;
+        }
+      }
+
+      function hideTrafficLayer() {
+        // Hide all traffic road polylines and signals
+        if (typeof roadLayers !== 'undefined')
+          roadLayers.forEach((r) =>
+            r.polyline.setStyle({ opacity: 0, weight: 0 }),
+          );
+        if (typeof signals !== 'undefined')
+          signals.forEach((s) => {
+            s.poles.forEach((p) => p.setStyle({ opacity: 0, fillOpacity: 0 }));
+          });
+        document.getElementById('legend').classList.add('hidden');
+      }
+
+      function showTrafficLayer() {
+        if (typeof roadLayers !== 'undefined')
+          roadLayers.forEach((r) =>
+            r.polyline.setStyle({ opacity: 0.85, weight: 5 }),
+          );
+        if (typeof signals !== 'undefined')
+          signals.forEach((s) => {
+            s.poles.forEach((p) => p.setStyle({ opacity: 1, fillOpacity: 1 }));
+          });
+        document.getElementById('legend').classList.remove('hidden');
+      }
+
+      function drawAllRoutes(routes, startLL, endLL) {
+        clearRouteOverlay();
+        hideTrafficLayer();
+
+        const keys = ['shortest', 'fastest', 'traffic'];
+        let allCoords = [];
+
+        keys.forEach((k) => {
+          const r = routes[k];
+          if (!r || r.coords.length < 2) return;
+
+          // Shadow
+          const shadow = L.polyline(r.coords, {
+            color: '#000',
+            weight: 10,
+            opacity: 0.18,
+            interactive: false,
+          }).addTo(map);
+
+          // Route line (start dimmed; first will be activated)
+          const line = L.polyline(r.coords, {
+            color: ROUTE_META[k].color,
+            weight: 6,
+            opacity: 0.35,
+            lineJoin: 'round',
+            lineCap: 'round',
+          }).addTo(map);
+
+          // Tooltip on hover
+          line.bindTooltip(ROUTE_META[k].label, {
+            sticky: true,
+            className: '',
+          });
+
+          line.on('click', () => activateRoute(k));
+          _routeLines[k] = line;
+          // Keep shadow reference so we can remove it
+          line._shadow = shadow;
+
+          r.coords.forEach((c) => allCoords.push(c));
+        });
+
+        // Start / end pin markers (draw on top)
+        _startMarker = pinMarker(startLL, '#27ae60', 'A')
+          .addTo(map)
+          .bindPopup('<b>Start</b>');
+        _endMarker = pinMarker(endLL, '#e74c3c', 'B')
+          .addTo(map)
+          .bindPopup('<b>Destination</b>');
+
+        // Fit map to all routes
+        if (allCoords.length) {
+          map.fitBounds(L.latLngBounds(allCoords), { padding: [50, 50] });
+        }
+
+        // Activate first available
+        const firstKey = keys.find((k) => _routeLines[k]);
+        if (firstKey) activateRoute(firstKey);
+      }
+
+      function activateRoute(key) {
+        _activeKey = key;
+        Object.entries(_routeLines).forEach(([k, line]) => {
+          const isActive = k === key;
+          line.setStyle({
+            opacity: isActive ? 0.95 : 0.25,
+            weight: isActive ? 8 : 5,
+          });
+          if (isActive) line.bringToFront();
+        });
+
+        // Sync card UI
+        document.querySelectorAll('.rc').forEach((card) => {
+          const k = card.dataset.key;
+          card.classList.toggle('active', k === key);
+          card.classList.toggle('dim', k !== key);
+        });
+      }
+
+      // ══════════════════════════════════════════
+      //  Build result cards
+      // ══════════════════════════════════════════
+      function buildCards(routes) {
+        const container = document.getElementById('cards-container');
+        container.innerHTML = '';
+
+        ['shortest', 'fastest', 'traffic'].forEach((key, idx) => {
+          const r = routes[key];
+          const meta = ROUTE_META[key];
+          if (!r) return;
+
+          const tScore = r.trafficScore;
+          const fillColor =
+            tScore > 70 ? '#27ae60' : tScore > 40 ? '#f39c12' : '#e74c3c';
+          const estDisplay = r.estMinutes < 1 ? '<1' : r.estMinutes;
+
+          const card = document.createElement('div');
+          card.className = `rc ${key}`;
+          card.dataset.key = key;
+          card.innerHTML = `
+      <div class="rc-badge">
+        <span class="rc-dot" style="background:${meta.color}"></span>${meta.badge}
+      </div>
+      <div class="rc-title">${meta.emoji} ${meta.label}</div>
+      <div class="rc-stats">
+        <div class="rc-stat">
+          <span class="v">${r.distKm}</span><div class="k">km</div>
+        </div>
+        <div class="rc-stat">
+          <span class="v">${estDisplay}</span><div class="k">min est.</div>
+        </div>
+        <div class="rc-stat">
+          <span class="v">${tScore}%</span><div class="k">clear</div>
+        </div>
+      </div>
+      <div class="rc-bar">
+        <div class="rc-fill" data-target="${tScore}" style="background:${fillColor}"></div>
+      </div>`;
+
+          card.addEventListener('click', () => activateRoute(key));
+          container.appendChild(card);
+
+          // Animate bar after paint
+          setTimeout(
+            () => {
+              card.querySelector('.rc-fill').style.width = tScore + '%';
+            },
+            80 + idx * 130,
+          );
+        });
+      }
+
+      // ══════════════════════════════════════════
+      //  Find Route handler
+      // ══════════════════════════════════════════
+      document
+        .getElementById('find-route-btn')
+        .addEventListener('click', async () => {
+          const startVal = document.getElementById('start-input').value.trim();
+          const endVal = document.getElementById('end-input').value.trim();
+          const errEl = document.getElementById('route-error');
+          errEl.style.display = 'none';
+
+          if (!startVal || !endVal) {
+            errEl.textContent =
+              'Please enter both a starting location and a destination.';
+            errEl.style.display = 'block';
+            return;
+          }
+
+          const btn = document.getElementById('find-route-btn');
+          btn.classList.add('loading');
+
+          try {
+            const [startLL, endLL] = await Promise.all([
+              geocode(startVal),
+              geocode(endVal),
+            ]);
+
+            // findRoutes is exposed by city.js
+            const routes = await findRoutes(startLL, endLL);
+
+            // Render routes on map
+            drawAllRoutes(routes, startLL, endLL);
+
+            // Switch sidebar panel
+            document.getElementById('input-section').style.display = 'none';
+            document.getElementById('route-results').style.display = 'flex';
+
+            // From → To summary
+            document.getElementById('route-from-to').innerHTML =
+              `<strong>📍 ${startVal}</strong>` +
+              `<br><span class="arrow">↓</span><br>` +
+              `<strong>🏁 ${endVal}</strong>`;
+
+            buildCards(routes);
+          } catch (err) {
+            errEl.textContent = err.message || String(err);
+            errEl.style.display = 'block';
+          } finally {
+            btn.classList.remove('loading');
+          }
+        });
+
+      // ── Back button ──────────────────────────────
+      document.getElementById('back-btn').addEventListener('click', () => {
+        clearRouteOverlay();
+        showTrafficLayer();
+
+        document.getElementById('route-results').style.display = 'none';
+        document.getElementById('input-section').style.display = 'block';
+        document.getElementById('route-error').style.display = 'none';
+        document.getElementById('cards-container').innerHTML = '';
+
+        // Reset map view
+        map.setView([16.96, 82.23], 14);
+      });
+    </script>
   </body>
 </html>
