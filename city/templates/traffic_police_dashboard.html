@@ -563,6 +563,29 @@
         height: 1px;
         background: rgba(255, 255, 255, 0.06);
       }
+      #logout-btn {
+        margin-top: 10px;
+        width: 100%;
+        padding: 8px;
+        border: none;
+        border-radius: 8px;
+        background: linear-gradient(135deg, #e74c3c, #c0392b);
+        color: #fff;
+        font-size: 12px;
+        font-weight: 700;
+        cursor: pointer;
+        transition:
+          opacity 0.2s,
+          transform 0.1s;
+      }
+
+      #logout-btn:hover {
+        opacity: 0.85;
+      }
+
+      #logout-btn:active {
+        transform: scale(0.97);
+      }
     </style>
   </head>
   <body>
@@ -572,7 +595,8 @@
       <div id="sidebar">
         <div class="sb-header">
           <h1><span class="shield">🛡️</span> Police Command</h1>
-          <p>Kakinada Traffic Management · Live Control</p>
+          <p>Traffic Cloud Solutions · Live Control</p>
+          <button id="logout-btn">Logout</button>
         </div>
 
         <div class="sb-body">
@@ -1175,6 +1199,9 @@
       }
 
       setInterval(updateStats, 1000);
+      document.getElementById('logout-btn').addEventListener('click', () => {
+        window.location.href = '/logout';
+      });
     </script>
   </body>
 </html>
