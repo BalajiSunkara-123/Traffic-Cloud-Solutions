@@ -5,6 +5,8 @@ from django.contrib import messages
 # Create your views here.
 from django.http import HttpResponse
 from django.contrib.auth import authenticate, login
+from django.contrib.auth import logout
+from django.shortcuts import redirect
 
 
 # def home(request):
@@ -19,14 +21,26 @@ def user_login(request):
     if request.method == "POST":
         username = request.POST.get("username")
         password = request.POST.get("password")
+        is_traffic = request.POST.get("isTraffic") 
+        secret_code = request.POST.get("secret_code")
         
         print(username)
 
         user = authenticate(request, username=username, password=password)
 
         if user is not None:
-            login(request, user)
-            return redirect("city/dashboard")   # make sure this URL name exists
+            if is_traffic:
+                if secret_code != "TP123":   # ✅ your secret code
+                    messages.error(request, "Invalid Traffic Police Code")
+                    return render(request, "login.html")
+
+                login(request, user)
+                request.session['is_traffic'] = True
+                return redirect("trafficpolice")   # ✅ URL name
+            else:
+                request.session['is_traffic'] = False
+                login(request, user)
+                return redirect("dashboard")    # make sure this URL name exists
         else:
             messages.error(request, "Invalid Username or Password")
             return render(request, "login.html")
@@ -61,3 +75,8 @@ def register(request):
         return redirect('login')
     else:
         return render(request,'register.html')
+    
+
+def logout_view(request):
+    logout(request)   # 🔥 This is the key line
+    return redirect('login')
